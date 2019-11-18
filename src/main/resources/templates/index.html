@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>用户信息展示</title>
+    <link rel="stylesheet" type="text/css" href="easyui/themes/bootstrap/easyui.css">
+    <link rel="stylesheet" type="text/css" href="easyui/themes/icon.css">
+    <link rel="stylesheet" type="text/css" href="easyui/themes/color.css">
+    <script type="text/javascript" src="easyui/jquery.min.js"></script>
+    <script type="text/javascript" src="easyui/jquery.easyui.min.js"></script>
+    <script type="text/javascript" src="easyui/locale/easyui-lang-zh_CN.js"></script>
+    <script type="text/javascript" src="common/Utils.js"></script>
+</head>
+<body>
+<div id="_user_layout" class="easyui-layout" data-options="fit:true,border:false">
+    <div data-options="region:'north',border:false"
+         style="height:46px;line-height: 46px;padding:4px;margin:0;overflow: hidden">
+        <a class="easyui-linkbutton" id="_user_add" data-options="iconCls: 'icon-add'">添加用户</a>
+        <a class="easyui-linkbutton" id="_user_del" data-options="iconCls: 'icon-add'">删除用户</a>
+    </div>
+
+    <div id="_user_info_panel_center" data-options="region:'center',border:false" style="padding:5px">
+        <div id="_user_info_tab">
+            <div title="正常用户">
+                <div id="_user_normal_grid"></div>
+            </div>
+            <div title="注销用户">
+                <div id="_user_abnormal_grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!--添加弹窗-->
+    <div id="_user_info_add" class="easyui-dialog" closed="true" style="width:1070px;height:430px;overflow: hidden"
+         data-options="modal:true,shadow:false">
+        <form id="_user_add_dialog" method="post">
+            <div class="easyui-layout" data-options="border:false,split:false" style="height:300px;width:1060px">
+                <div data-options="region:'center',collapsible:false,border:false" style="padding-top:20px;width:530px">
+                    <table style="width:50%; margin: 20px auto" cellspacing="10" cellpadding="2">
+                        <tr>
+                            <td style="width:90px">用户名：</td>
+                            <td><input class="easyui-textbox" id="_user_add_name" name="username"
+                                       data-options="required:true,validType:'length[1,50]'" style="width:100%;"></td>
+                        </tr>
+                        <tr>
+                            <td style="width:90px">密码：</td>
+                            <td><input class="easyui-textbox" id="_user_add_pwd" name="password"
+                                       data-options="required:true,validType:'length[1,50]'" style="width:100%;"></td>
+                        </tr>
+                        <tr>
+                            <td style="width:90px">角色：</td>
+                            <td><input class="easyui-textbox" id="_user_add_role" name="role"
+                                       data-options="required:true,validType:'length[1,50]'" style="width:100%;"></td>
+                        </tr>
+                    </table>
+                    <input id="_user_id" name="id" style="display: none">
+                </div>
+            </div>
+            <div style="padding-top:20px;text-align: center">
+                <a class="easyui-linkbutton" id="_add_btn_save" data-options="iconCls: 'icon-save'">保存</a>
+                <a class="easyui-linkbutton" id="_add_btn_reset" data-options="iconCls: 'icon-reload'">重置</a>
+                <a class="easyui-linkbutton" id="_add_btn_close" data-options="iconCls: 'icon-cancel'">关闭</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="text/javascript" th:inline="none">
+    $(function () {
+        $.parser.parse($("#_user_layout").parent());
+        var tabs = $("#_user_info_tab");
+        var recordLimit = 10;
+        initTabs();
+        initGrid();
+        initButtons();
+
+        function initTabs() {
+            tabs.tabs({
+                fit: true,
+                plain: true,
+                selected: 0,
+                border: true, tabPosition: 'left', tabWidth: 100, headerWidth: 100, tabHeight: 50,
+                onSelect: function (title, index) {
+                    var speed = 300;
+                    if (index === 0) {
+                        $('#_user_add').show(speed);
+                        $('#_user_del').show(speed);
+                    } else {
+                        $('#_user_del').hide(speed);
+                    }
+                }
+            });
+        };
+
+        function initGrid() {
+            $('#_user_normal_grid').datagrid({
+                title: '正常用户',
+                url: '/user/list',
+                method: 'GET',
+                striped: true, pagination: true, pageSize: recordLimit,
+                rownumbers: false, autoRowHeight: true,
+                loadMsg: '数据加载中，请稍候...',
+                fit: true, remoteSort: true, nowrap: true, idField: 'id', checkOnSelect: false,
+                queryParams: {correction: 0},
+                columns: [[
+                    {field: 'check', checkbox: true},
+                    {field: 'username', title: '用户名', halign: 'center', width: 135, sortable: false},
+                    {field: 'password', title: '密码', halign: 'center', width: 135, sortable: false},
+                    {field: 'role', title: '角色', halign: 'center', width: 135, sortable: false},
+                    {field: 'opt', title: '编辑', width: 135, align: 'center', formatter: formEdit}
+                ]],
+                onClickRow: function (rowIndex, rowData) {
+                    $(this).datagrid('unselectRow', rowIndex);
+                },
+                rowStyler: function (index, row) {
+                },
+                onLoadSuccess: function (data) {
+                    //console.log(data);
+                    var tab = tabs.tabs('getTab', 0);
+                    var newTitle = "正常用户 (" + data.total + ")";
+                    tabs.tabs('update', {
+                        tab: tab,
+                        options: {
+                            title: newTitle
+                        }
+                    });
+                    drawGridButtons();
+                }
+            });
+
+            $('#_user_abnormal_grid').datagrid({
+                title: '注销用户',
+                url: '/user/list',
+                method: 'GET',
+                striped: true, pagination: true, pageSize: recordLimit,
+                rownumbers: false, autoRowHeight: true,
+                loadMsg: '数据加载中，请稍候...',
+                fit: true, remoteSort: true, nowrap: true, idField: 'id', checkOnSelect: false,
+                queryParams: {correction: 1},
+                columns: [[
+                    {field: 'check', checkbox: true},
+                    {field: 'username', title: '用户名', halign: 'center', width: 135, sortable: false},
+                    {field: 'password', title: '密码', halign: 'center', width: 135, sortable: false},
+                    {field: 'role', title: '角色', halign: 'center', width: 135, sortable: false}
+                ]],
+                onClickRow: function (rowIndex, rowData) {
+                    $(this).datagrid('unselectRow', rowIndex);
+                },
+                rowStyler: function (index, row) {
+                },
+                onLoadSuccess: function (data) {
+                    //console.log(data);
+                    var tab = tabs.tabs('getTab', 1);
+                    var newTitle = "注销用户 (" + data.total + ")";
+                    tabs.tabs('update', {
+                        tab: tab,
+                        options: {
+                            title: newTitle
+                        }
+                    });
+                    drawGridButtons();
+                }
+            });
+        };
+
+        function initButtons() {
+            $("#_user_add").on("click", function () {
+                //debugger;
+                $('#_user_info_add').dialog('open').dialog('setTitle', '添加用户');
+                $('#_user_add_dialog').form('clear');
+            });
+            $('#_user_del').on('click', doDelete);
+            $('#_add_btn_save').on('click', userAdd);
+            $('#_add_btn_reset').on('click', userRest);
+            $('#_add_btn_close').on('click', userClose);
+        };
+
+        /*添加*/
+        function userAdd() {
+            $('#_user_add_dialog').form('submit', {
+                url: '/user/add',
+                onSubmit: function () {
+                    var flag = $(this).form('enableValidation').form('validate');
+                    if (!flag) {
+                        $.messager.confirm("系统提示", "请输入必填项！");
+                        return flag;
+                    }
+                },
+                success: function (data) {
+                    console.log(data);
+                    if (data != 0) {
+                        $.messager.alert("系统提示", "操作成功！");
+                        $('#_user_normal_grid').datagrid('load');
+                        $('#_user_abnormal_grid').datagrid('load');
+                        userClose();
+                    }
+                }
+            });
+        }
+
+        /*dialog重置*/
+        function userRest() {
+            $('#_user_add_dialog').form('clear');
+        }
+
+        /*dialog关闭*/
+        function userClose() {
+            $('#_user_info_add').dialog('close');
+
+        }
+
+        /*删除*/
+        function doDelete() {
+            var ids = selectedIds();
+            if (!ids) {
+                return;
+            }
+            $.messager.confirm('确认操作', '选中的数据将被删除，是否继续？', function (r) {
+                if (r) {
+                    $.ajax({
+                        url: "/user/delete",
+                        type: "POST",
+                        data: {ids: ids},
+                        timeout: 10000,
+                        success: function (data) {
+                            if (data != 0) {
+                                $.messager.alert({
+                                    title: '系统提示',
+                                    msg: '数据删除成功'
+                                });
+                                $("#_user_normal_grid").datagrid("reload");
+                                $("#_user_abnormal_grid").datagrid("reload");
+                            } else {
+                                $.messager.alert({
+                                    title: '系统提示',
+                                    msg: '数据删除失败，请稍后重试或与管理员联系'
+                                });
+                            }
+                        }
+                    });
+                }
+            })
+        }
+
+        /*获取选中数据的id*/
+        function selectedIds() {
+            var tab = tabs.tabs('getSelected');
+            var selectedTabIndex = tabs.tabs('getTabIndex', tab);
+            var checked = [];
+            if (selectedTabIndex === 0) {
+                checked = $('#_user_normal_grid').datagrid('getChecked');
+            } else {
+                checked = $('#_user_abnormal_grid').datagrid('getChecked');
+            }
+
+            if (!checked || !checked.length) {
+                $.messager.alert("系统提示", "请至少选取一条记录");
+                return;
+            }
+
+            var ids = '';
+            $.each(checked, function (i, row) {
+                if (i > 0) {
+                    ids += ',';
+                }
+                ids += row.id;
+            });
+
+            return ids;
+        }
+
+        /*拼接编辑按钮*/
+        function formEdit(value, rec) {
+            return "<a name='_msg_info_row_edit_btn' id='" + rec.id + "' title='修改用户信息' class='easyui-tooltip'>编辑</a>";
+        };
+
+        function drawGridButtons() {
+            $("a[name='_msg_info_row_edit_btn']").linkbutton({
+                text: '编辑', plain: false, iconCls: 'icon-edit',
+                onClick: function () {
+                    var id = $(this).attr("id");
+                    var row = getRowData(id);
+                    /*console.log(id);
+                    console.log(row);*/
+                    if (row) {
+                        $('#_user_info_add').dialog('open').dialog('setTitle', '修改用户');
+                        $('#_user_add_dialog').form('load', row);
+                    }
+                }
+            });
+        }
+
+        /*根据点击编辑按钮时传递的id获取该行数据*/
+        function getRowData(id) {
+            var messageData;
+            //获取两个tab里所以行的数据
+            var rows = $("#_user_normal_grid").datagrid("getRows");
+            rows = rows.concat($("#_user_abnormal_grid").datagrid("getRows"));
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].id === id) {
+                    messageData = rows[i];
+                    break;
+                }
+            }
+            return messageData;
+        }
+    })
+</script>
+</body>
+</html>

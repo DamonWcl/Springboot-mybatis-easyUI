@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.example.dao.UserMapper">
+    <sql id="User_List">
+        id,username,password,role,delFlag
+    </sql>
+
+    <!--查询所有-->
+    <select id="list" resultType="user" parameterType="int">
+        select <include refid="User_List"/> FROM user where delFlag = #{correction}
+            order by registTime asc
+    </select>
+
+    <select id="queryTotal" parameterType="int" resultType="long">
+        SELECT COUNT(delFlag) from
+            user where delFlag = #{correction}
+    </select>
+
+    <!--添加-->
+    <insert id="add" parameterType="user">
+        insert into user(id,username,password,role,delFlag,registTime) values(UUID(),#{username},#{password},#{role},0,now())
+    </insert>
+
+    <!--删除-->
+    <update id="delete" parameterType="java.util.List">
+        update user set delFlag = 1 where id in
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!--修改-->
+    <update id="edit" parameterType="user">
+        update user set username = #{username}, password = #{password}, role = #{role}
+            where id = #{id}
+    </update>
+</mapper>
